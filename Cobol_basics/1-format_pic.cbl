@@ -11,8 +11,8 @@
 
        PROCEDURE DIVISION.
 
-       DISPLAY "Customer ID  : " Customer-ID.
+       DISPLAY "Customer ID : " Customer-ID.
        DISPLAY "Account Balance : " Account-Balance.
-       DISPLAY "Interest Rate  : " Interest-Rate "%" .
+       DISPLAY "Interest Rate : " Interest-Rate "%" .
        
        STOP RUN.
