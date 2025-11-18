@@ -1,0 +1,1 @@
+[ERROR] Query failed : 'SELECT wrong_column FROM accounts;'
