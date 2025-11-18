@@ -1,0 +1,89 @@
+IDENTIFICATION DIVISION.
+       PROGRAM-ID. database-demo.
+       
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "dbapi.cpy".
+       
+       01  CONNECTION-STRING PIC X(200)
+           VALUE "host=localhost dbname=schooldb user=postgres password=postgres".
+       
+       01  QUERY-SELECT-ACCOUNTS PIC X(200)
+           VALUE "SELECT account_id, balance FROM accounts ORDER BY account_id".
+       
+       01  QUERY-INVALID PIC X(200) 
+           VALUE "SELECT nope FROM accounts".
+       
+       01  STRING-LENGTH PIC 9(4) VALUE 0.
+       01  FETCH-STATUS PIC 9 VALUE 0.
+
+       PROCEDURE DIVISION.
+       MAIN-LOGIC.
+           DISPLAY "APPLICATION STARTING...".
+           
+           PERFORM ESTABLISH-CONNECTION.
+           IF DBH = NULL-PTR THEN 
+               DISPLAY "CONNECTION FAILED"
+               STOP RUN
+           END-IF.
+
+           PERFORM EXECUTE-VALID-QUERY.
+           PERFORM EXECUTE-INVALID-QUERY.
+           PERFORM CLOSE-CONNECTION.
+           
+           DISPLAY "APPLICATION TERMINATED".
+           GOBACK.
+
+       ESTABLISH-CONNECTION.
+           MOVE SPACES TO DB-CONNSTR.
+           COMPUTE STRING-LENGTH = FUNCTION LENGTH(FUNCTION TRIM(CONNECTION-STRING)).
+           MOVE CONNECTION-STRING(1:STRING-LENGTH) TO DB-CONNSTR(1:STRING-LENGTH).
+           MOVE X"00" TO DB-CONNSTR(STRING-LENGTH + 1:1).
+           CALL STATIC "DB_CONNECT" USING DB-CONNSTR RETURNING DBH.
+
+       EXECUTE-VALID-QUERY.
+           MOVE SPACES TO SQL-COMMAND.
+           COMPUTE STRING-LENGTH = FUNCTION LENGTH(FUNCTION TRIM(QUERY-SELECT-ACCOUNTS)).
+           MOVE QUERY-SELECT-ACCOUNTS(1:STRING-LENGTH) TO SQL-COMMAND(1:STRING-LENGTH).
+           MOVE X"00" TO SQL-COMMAND(STRING-LENGTH + 1:1).
+           
+           CALL STATIC "DB_QUERY"
+               USING BY VALUE DBH, BY REFERENCE SQL-COMMAND
+               RETURNING STMT.
+           
+           IF STMT NOT = NULL-PTR THEN
+               PERFORM PROCESS-RESULTS
+           END-IF.
+
+       EXECUTE-INVALID-QUERY.
+           MOVE SPACES TO SQL-COMMAND.
+           COMPUTE STRING-LENGTH = FUNCTION LENGTH(FUNCTION TRIM(QUERY-INVALID)).
+           MOVE QUERY-INVALID(1:STRING-LENGTH) TO SQL-COMMAND(1:STRING-LENGTH).
+           MOVE X"00" TO SQL-COMMAND(STRING-LENGTH + 1:1).
+           
+           CALL STATIC "DB_QUERY"
+               USING BY VALUE DBH, BY REFERENCE SQL-COMMAND
+               RETURNING STMT.
+           
+           IF STMT = NULL-PTR THEN
+                DISPLAY "QUERY ERROR: Failed to execute '" 
+                        FUNCTION TRIM(SQL-COMMAND) ";'"
+           END-IF.
+
+       PROCESS-RESULTS.
+           MOVE 0 TO FETCH-STATUS.
+           PERFORM RETRIEVE-ROW UNTIL FETCH-STATUS NOT = 0.
+
+       RETRIEVE-ROW.
+           MOVE SPACES TO C1, C2, C3.
+           CALL STATIC "DB_FETCH"
+               USING BY VALUE STMT, BY REFERENCE C1, C2, C3
+               RETURNING FETCH-STATUS.
+           
+           IF FETCH-STATUS = 0 THEN
+               DISPLAY "Account ID: " FUNCTION TRIM(C1)
+                       " | Balance: " FUNCTION TRIM(C2)
+           END-IF.
+
+       CLOSE-CONNECTION.
+           CALL STATIC "DB_DISCONNECT" USING BY VALUE DBH RETURNING RC.
